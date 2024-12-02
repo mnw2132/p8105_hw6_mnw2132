@@ -1,0 +1,75 @@
+---
+title: "p8105_hw6_mnw2132"
+author: "Mary Williams"
+date: "2024-11-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(broom)
+```
+
+## Loading the data
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+```{r}
+# Compute r^2 and log(beta0 * beta1)
+compute_quantities <- function(data) {
+  model <- lm(tmax ~ tmin, data = data)
+  r_squared <- glance(model)$r.squared
+  coefs <- tidy(model)
+  log_beta_product <- log(coefs$estimate[1] * coefs$estimate[2])
+  return(tibble(r_squared = r_squared, log_beta_product = log_beta_product))
+}
+
+# 5000 bootstrap samples
+set.seed(123)  
+bootstrap_results <- map_dfr(1:5000, ~ {
+  resampled_data <- weather_df %>% sample_frac(replace = TRUE)
+  compute_quantities(resampled_data)
+})
+```
+
+## Plot distribution
+```{r}
+summary(bootstrap_results)
+# Pivot longer
+bootstrap_results %>%
+  pivot_longer(cols = everything(), names_to = "quantity", values_to = "value") %>%
+  
+  #Plot the distribution
+  ggplot(aes(x = value)) +
+  geom_density(fill = "lightpink", alpha = 0.7) +
+  facet_wrap(~quantity, scales = "free") +
+  labs(title = "5000 Bootstrap of r squared and log(beta0 * beta1)",
+       x = "Value", y = "Density of value")
+```
+geom_point did not show the data clearly, so instead I used geom_density to show the density of the points. According to the density graph, the data shows a bell curve. The log(beta0 * beta1) peaks around 16 with a mean density of about 2.15, while r squared peaked around 46, with a density mean of about 0.91. 
+
+
+## Confidence Intervals and quantiles
+```{r}
+bootstrap_results %>%
+  summarise(
+    r_squared_lower = quantile(r_squared, 0.025),
+    r_squared_upper = quantile(r_squared, 0.975),
+    log_beta_lower = quantile(log_beta_product, 0.025),
+    log_beta_upper = quantile(log_beta_product, 0.975)
+  )
+```
+For the r squared, the 2.5% quantile was `r r_squared_lower` and the 97.5% quantile is `r r_squared_upper`.
