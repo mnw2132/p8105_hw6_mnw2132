@@ -145,3 +145,45 @@ ggplot(city_results, aes(x = city_state, y = estimate, ymin = conf.low, ymax = c
   ) +
   theme(axis.text.x = element_text(angle = 90))
 ```
+
+# Question 3
+```{r}
+library(modelr)
+library(broom)
+```
+
+```{r}
+# Load the data 
+birthweight_df <- read.csv("./birthweight.csv")
+summary(birthweight_df)
+
+# Convert factors
+birthweight_factor <- birthweight_df %>%
+  mutate(
+    babysex = factor(babysex, levels = c(1, 2), labels = c("Male", "Female")),
+    frace = factor(frace, levels = c(1, 2, 3, 4, 8, 9), labels = c("White", "Black", "Asian", "Puerto Rican", "Other", "Unknown")),
+    mrace = factor(mrace, levels = c(1, 2, 3, 4, 8), labels = c("White", "Black", "Asian", "Puerto Rican", "Other")),
+    malform = factor(malform, levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+summary(birthweight_factor)
+```
+
+```{r}
+# Regression model of baby's weight has any relation to mother's weight, health, and demographic factors
+bby_weight = lm(bwt ~ delwt + mheight + momage + mrace + ppbmi + ppwt + smoken + wtgain, data = birthweight_factor)
+
+broom::tidy(bby_weight)
+```
+
+```{r}
+# Plot residuals vs fitted values
+birthweight_factor  %>% 
+  add_predictions(bby_weight) %>%  
+  add_residuals(bby_weight) %>% 
+  ggplot(aes(x = pred, y= resid)) + 
+  geom_point(color = "blue") + 
+  geom_point(aes(y = pred), color = "pink")+
+  labs(title = "Residuals vs Fitted", x = "Fitted Values", y = "Residuals") +
+  theme_minimal()
+```
