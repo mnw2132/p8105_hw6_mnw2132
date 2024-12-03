@@ -12,6 +12,7 @@ library(ggplot2)
 library(broom)
 ```
 
+#Question 1
 ## Loading the data
 ```{r}
 weather_df = 
@@ -65,11 +66,82 @@ geom_point did not show the data clearly, so instead I used geom_density to show
 ## Confidence Intervals and quantiles
 ```{r}
 bootstrap_results %>%
+  group_by() %>%
   summarise(
-    r_squared_lower = quantile(r_squared, 0.025),
-    r_squared_upper = quantile(r_squared, 0.975),
-    log_beta_lower = quantile(log_beta_product, 0.025),
-    log_beta_upper = quantile(log_beta_product, 0.975)
+    r_lower = quantile(r_squared, 0.025),
+    r_upper = quantile(r_squared, 0.975),
+    log_lower = quantile(log_beta_product, 0.025),
+    log_upper = quantile(log_beta_product, 0.975)
   )
 ```
-For the r squared, the 2.5% quantile was `r r_squared_lower` and the 97.5% quantile is `r r_squared_upper`.
+The 95% CIs and quantiles for the r squared was (0.895, 0.927) and for the log is (1.96, 2.06). 
+
+# Question 2 
+```{r}
+#Load data
+homicide_df <- read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
+
+# Tidy data
+homicide_df_tidy <- homicide_df %>%
+    mutate(
+    city_state = paste (city,state, sep = ","),
+    resolved = ifelse(disposition == "Closed by arrest", 1, 0),
+    victim_age = as.numeric(victim_age),
+    victim_race = str_to_lower(victim_race)
+  ) %>%
+    filter(!(city %in% c("Dallas", "Phoenic","Kansas City", "Tulsa")),
+    victim_race %in% c("white","black"),
+    !is.na(victim_age)
+) 
+```
+
+## Baltimore
+```{r}
+# Filter for Baltimore, MD
+baltimore <- homicide_df_tidy %>% 
+  filter(city == "Baltimore")
+
+# Logistic regression got males vs females
+baltimore_glm <- glm(resolved ~ victim_age + victim_sex + victim_race, 
+                     data = baltimore, 
+                     family = "binomial")
+
+baltimore_results <- broom::tidy(baltimore_glm, exp = TRUE)
+
+male_vs_female <- baltimore_results %>% filter(term == "victim_sexMale")
+male_vs_female
+```
+
+## All cities
+```{r}
+# Group by city and fit logistic regression models for each city
+city_results <- homicide_df_tidy %>%
+  group_by(city_state) %>%
+  nest() %>%
+  mutate(
+    glm_model = map(data, ~ glm(resolved ~ victim_age + victim_sex + victim_race, 
+                                data = ., 
+                                family = "binomial")),
+    results = map(glm_model, ~ broom::tidy(., conf.int = TRUE, exp = TRUE))
+  ) %>%
+  unnest(results) %>%
+  filter(term == "victim_sexMale") %>%
+  select(city_state, estimate, conf.low, conf.high)
+```
+
+## Visualize OR
+```{r}
+# Reorder cities by odds ratio for visualization
+city_results <- city_results %>%
+  mutate(city_state = fct_reorder(city_state, estimate))
+
+# Plot ORs and confidence intervals
+ggplot(city_results, aes(x = city_state, y = estimate, ymin = conf.low, ymax = conf.high)) +
+  geom_pointrange(color = "pink") +
+  labs(
+    title = "Adjusted ORs for Solving Homicides by City by Gender",
+    x = "City",
+    y = "Adjusted OR (Male vs Female)",
+  ) +
+  theme(axis.text.x = element_text(angle = 90))
+```
