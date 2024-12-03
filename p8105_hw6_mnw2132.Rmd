@@ -13,6 +13,7 @@ library(broom)
 ```
 
 #Question 1
+
 ## Loading the data
 ```{r}
 weather_df = 

@@ -357,7 +357,9 @@ display: none;
 </div>
 
 
-<p>#Question 1 ## Loading the data</p>
+<p>#Question 1</p>
+<div id="loading-the-data" class="section level2">
+<h2>Loading the data</h2>
 <pre class="r"><code>weather_df = 
   rnoaa::meteo_pull_monitors(
     c(&quot;USW00094728&quot;),
@@ -387,6 +389,7 @@ bootstrap_results &lt;- map_dfr(1:5000, ~ {
   resampled_data &lt;- weather_df %&gt;% sample_frac(replace = TRUE)
   compute_quantities(resampled_data)
 })</code></pre>
+</div>
 <div id="plot-distribution" class="section level2">
 <h2>Plot distribution</h2>
 <pre class="r"><code>summary(bootstrap_results)</code></pre>
